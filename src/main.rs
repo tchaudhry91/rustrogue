@@ -25,6 +25,9 @@ impl GameState for State {
         ctx.cls();
         self.run_systems();
         player_input(self, ctx);
+
+        let map = self.ecs.fetch::<Vec<TileType>>();
+        draw_map(&map, ctx);
         let positions = self.ecs.read_storage::<Position>();
         let renderables = self.ecs.read_storage::<Renderable>();
 
@@ -66,10 +69,18 @@ struct Player {}
 fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
     let mut positions = ecs.write_storage::<Position>();
     let mut players = ecs.write_storage::<Player>();
+    let map = ecs.fetch::<Vec<TileType>>();
 
     for (_player, pos) in (&mut players, &mut positions).join() {
-        pos.x = min(79, max(0, pos.x + delta_x));
-        pos.y = min(49, max(0, pos.y + delta_y));
+        let dest = Position {
+            x: min(79, max(0, pos.x + delta_x)),
+            y: min(49, max(0, pos.y + delta_y)),
+        };
+        if map[xy_idx(dest.x, dest.y)] == TileType::Wall {
+            return;
+        }
+        pos.x = dest.x;
+        pos.y = dest.y;
     }
 }
 
@@ -128,19 +139,19 @@ fn draw_map(map: &[TileType], ctx: &mut Rltk) {
     let mut x = 0;
     for tile in map.iter() {
         match tile {
-            TileType::Floor => ctx.set(
+            TileType::Wall => ctx.set(
                 x,
                 y,
                 RGB::from_f32(0., 1., 0.),
                 RGB::from_f32(0., 0., 0.),
-                rltk::to_cp437('.'),
+                rltk::to_cp437('#'),
             ),
-            TileType::Wall => ctx.set(
+            TileType::Floor => ctx.set(
                 x,
                 y,
                 RGB::from_f32(0.5, 0.5, 0.5),
                 RGB::from_f32(0., 0., 0.),
-                rltk::to_cp437('#'),
+                rltk::to_cp437('.'),
             ),
         }
         x += 1;
@@ -171,19 +182,6 @@ fn main() -> rltk::BError {
         })
         .with(Player {})
         .build();
-
-    for i in 0..10 {
-        gs.ecs
-            .create_entity()
-            .with(Position { x: i * 7, y: 20 })
-            .with(Renderable {
-                glyph: rltk::to_cp437('!'),
-                fg: RGB::named(rltk::BLUE),
-                bg: RGB::named(rltk::BLACK),
-            })
-            .with(LeftMover {})
-            .build();
-    }
 
     rltk::main_loop(context, gs)
 }
