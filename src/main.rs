@@ -2,6 +2,8 @@ use map::TileType;
 use rltk::{GameState, Rltk, RGB};
 use specs::prelude::*;
 
+mod rect;
+pub use rect::*;
 mod map;
 pub use map::*;
 mod components;
@@ -40,14 +42,19 @@ fn main() -> rltk::BError {
     use rltk::RltkBuilder;
     let context = RltkBuilder::simple80x50().with_title("Buzzfield").build()?;
     let mut gs = State { ecs: World::new() };
-    gs.ecs.insert(map::new_map());
+    let (game_map, rooms) = map::new_map_rooms_and_corridors();
+    let (player_x, player_y) = rooms[0].center();
+    gs.ecs.insert(game_map);
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
 
     gs.ecs
         .create_entity()
-        .with(Position { x: (40), y: (25) })
+        .with(Position {
+            x: player_x,
+            y: player_y,
+        })
         .with(Renderable {
             glyph: rltk::to_cp437('@'),
             fg: RGB::named(rltk::RED),
